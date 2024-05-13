@@ -930,7 +930,7 @@ function history_search(hist::REPLHistoryProvider, query_buffer::IOBuffer, respo
     qpos = position(query_buffer)
     qpos > 0 || return true
     searchdata = beforecursor(query_buffer)
-    response_str = String(take!(copy(response_buffer)))
+    response_str = takestring!(copy(response_buffer))
 
     # Alright, first try to see if the current match still works
     a = position(response_buffer) + 1 # position is zero-indexed
@@ -987,7 +987,7 @@ end
 LineEdit.reset_state(hist::REPLHistoryProvider) = history_reset_state(hist)
 
 function return_callback(s)
-    ast = Base.parse_input_line(String(take!(copy(LineEdit.buffer(s)))), depwarn=false)
+    ast = Base.parse_input_line(takestring!(copy(LineEdit.buffer(s))), depwarn=false)
     return !(isa(ast, Expr) && ast.head === :incomplete)
 end
 
@@ -1511,7 +1511,7 @@ let matchend = Dict("\"" => r"\"", "\"\"\"" => r"\"\"\"", "'" => r"'",
             pos = nextind(code, last(j))
         end
         print(buf, SubString(code, pos, lastindex(code)))
-        return String(take!(buf))
+        return takestring!(buf)
     end
 end
 
