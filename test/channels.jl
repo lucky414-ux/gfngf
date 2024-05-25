@@ -519,6 +519,12 @@ struct CustomError <: Exception end
     @test take!(c) == 1
     @test_throws InvalidStateException take!(c)
     @test_throws InvalidStateException put!(c, 5)
+
+    c = Channel(3)
+    put!(c, 1)
+    close(c)
+    @test first(iterate(c)) == 1
+    @test isnothing(iterate(c))
 end
 
 # PR #36641
