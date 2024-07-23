@@ -116,6 +116,21 @@ JL_DLLEXPORT void jl_gc_set_cb_notify_gc_pressure(jl_gc_cb_notify_gc_pressure_t 
 }
 
 // =========================================================================== //
+// malloc wrappers, aligned allocation
+// =========================================================================== //
+
+size_t memory_block_usable_size(void *p) JL_NOTSAFEPOINT
+{
+#if defined(_OS_WINDOWS_)
+    return _aligned_msize(p, JL_CACHE_BYTE_ALIGNMENT, 0);
+#elif defined(_OS_DARWIN_)
+    return malloc_size(p);
+#else
+    return malloc_usable_size(p);
+#endif
+}
+
+// =========================================================================== //
 // Finalization
 // =========================================================================== //
 

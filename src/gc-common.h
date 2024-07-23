@@ -12,6 +12,12 @@
 #endif
 #endif
 
+#if defined(_OS_DARWIN_)
+#include <malloc/malloc.h>
+#else
+#include <malloc.h> // for malloc_trim
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
