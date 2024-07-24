@@ -6,7 +6,7 @@ module Unicode
 import Base: show, ==, hash, string, Symbol, isless, length, eltype,
              convert, isvalid, ismalformed, isoverlong, iterate,
              AnnotatedString, AnnotatedChar, annotated_chartransform,
-             @assume_effects
+             @assume_effects, unsafe_takestring!
 
 # whether codepoints are valid Unicode scalar values, i.e. 0-0xd7ff, 0xe000-0x10ffff
 
@@ -680,7 +680,7 @@ function titlecase(s::AbstractString; wordsep::Function = !isletter, strict::Boo
         end
         c0 = c
     end
-    return String(take!(b))
+    return unsafe_takestring!(b)
 end
 
 # TODO: improve performance characteristics, room for a ~10x improvement.

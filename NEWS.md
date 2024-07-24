@@ -94,6 +94,7 @@ New library features
 * `tempname` can now take a suffix string to allow the file name to include a suffix and include that suffix in
   the uniquing checking ([#53474])
 * `RegexMatch` objects can now be used to construct `NamedTuple`s and `Dict`s ([#50988])
+* `takestring!(v)` creates a `String` from `v` (a `Vector{UInt8}` or `IOBuffer`), truncating `v` and reusing its memory if possible )([#54372]).
 
 Standard library changes
 ------------------------
