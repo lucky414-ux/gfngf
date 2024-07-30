@@ -514,9 +514,10 @@ function _show_default(io::IO, @nospecialize(x))
 end
 
 function active_module()
-    REPL = REPL_MODULE_REF[]
-    REPL === Base && return Main
-    return invokelatest(REPL.active_module)::Module
+    if !@isdefined(active_repl)
+        return Main
+    end
+    return invokelatest(active_module, active_repl)::Module
 end
 
 # Check if a particular symbol is exported from a standard library module

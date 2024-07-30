@@ -17,6 +17,8 @@ module REPL
 Base.Experimental.@optlevel 1
 Base.Experimental.@max_methods 1
 
+import Base: active_module
+
 function UndefVarError_hint(io::IO, ex::UndefVarError)
     var = ex.var
     if var === :or
@@ -327,7 +329,7 @@ function warn_on_non_owning_accesses(current_mod, ast)
     end
     return ast
 end
-warn_on_non_owning_accesses(ast) = warn_on_non_owning_accesses(REPL.active_module(), ast)
+warn_on_non_owning_accesses(ast) = warn_on_non_owning_accesses(active_module(), ast)
 
 const repl_ast_transforms = Any[softscope, warn_on_non_owning_accesses] # defaults for new REPL backends
 
@@ -758,11 +760,6 @@ REPLCompletionProvider() = REPLCompletionProvider(LineEdit.Modifiers())
 mutable struct ShellCompletionProvider <: CompletionProvider end
 struct LatexCompletions <: CompletionProvider end
 
-function active_module() # this method is also called from Base
-    isdefined(Base, :active_repl) || return Main
-    Base.active_repl === nothing && return Main
-    return active_module(Base.active_repl::AbstractREPL)
-end
 active_module((; mistate)::LineEditREPL) = mistate === nothing ? Main : mistate.active_module
 active_module(::AbstractREPL) = Main
 active_module(d::REPLDisplay) = active_module(d.repl)
