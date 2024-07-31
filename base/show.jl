@@ -3158,7 +3158,7 @@ summary(io::IO, x) = print(io, typeof(x))
 function summary(x)
     io = IOBuffer()
     summary(io, x)
-    unsafe_takestring!(io)
+    takestring!(io)
 end
 
 ## `summary` for AbstractArrays
