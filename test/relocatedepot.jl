@@ -60,6 +60,8 @@ if !test_relocated_depot
                 mkdir(jlrc)
                 push!(DEPOT_PATH, jlrc)
                 @test Base.replace_depot_path(jlrc) == "@depot"
+                @test Base.replace_depot_path(string(jlrc,Base.Filesystem.pathsep())) ==
+                            string("@depot",Base.Filesystem.pathsep())
                 @test Base.replace_depot_path(jl) != "@depot-rc2"
                 @test Base.replace_depot_path(jl) == jl
             end
