@@ -43,12 +43,25 @@ if !test_relocated_depot
                 if isdirpath(DEPOT_PATH[1])
                     DEPOT_PATH[1] = dirname(DEPOT_PATH[1]) # strip trailing pathsep
                 end
-                tag = joinpath("@depot", "") # append a pathsep
+                tag = string("@depot", Base.Filesystem.pathsep())
                 @test startswith(Base.replace_depot_path(path), tag)
-                DEPOT_PATH[1] = joinpath(DEPOT_PATH[1], "") # append a pathsep
+                DEPOT_PATH[1] = string(DEPOT_PATH[1], Base.Filesystem.pathsep())
                 @test startswith(Base.replace_depot_path(path), tag)
                 popfirst!(DEPOT_PATH)
                 @test !startswith(Base.replace_depot_path(path), tag)
+            end
+        end
+
+        # 55340
+        test_harness(empty_depot_path=true) do
+            mktempdir() do dir
+                jlrc = joinpath(dir, "julia-rc2")
+                jl   = joinpath(dir, "julia")
+                mkdir(jlrc)
+                push!(DEPOT_PATH, jlrc)
+                @test Base.replace_depot_path(jlrc) == "@depot"
+                @test Base.replace_depot_path(jl) != "@depot-rc2"
+                @test Base.replace_depot_path(jl) == jl
             end
         end
 
