@@ -2044,6 +2044,7 @@ function form_partially_defined_struct(@nospecialize(obj), @nospecialize(name))
     name isa Const || return nothing
     objt0 = widenconst(obj)
     objt = unwrap_unionall(objt0)
+    objt isa DataType || return nothing
     isabstracttype(objt) && return nothing
     fldidx = try_compute_fieldidx(objt, name.val)
     fldidx === nothing && return nothing
@@ -3109,7 +3110,8 @@ end
 @nospecializeinfer function widenreturn_partials(𝕃ᵢ::PartialsLattice, @nospecialize(rt), info::BestguessInfo)
     if isa(rt, PartialStruct)
         fields = copy(rt.fields)
-        anyrefine = !isvarargtype(rt.fields[end]) && length(rt.fields) > datatype_min_ninitialized(rt.typ)
+        anyrefine = !isvarargtype(rt.fields[end]) &&
+            length(rt.fields) > datatype_min_ninitialized(unwrap_unionall(rt.typ))
         𝕃 = typeinf_lattice(info.interp)
         ⊏ = strictpartialorder(𝕃)
         for i in 1:length(fields)

@@ -1005,7 +1005,7 @@ end
             nflds = nfields(sv)
             ismod = sv isa Module
         elseif isa(s00, PartialStruct)
-            sty = s00.typ
+            sty = unwrap_unionall(s00.typ)
             nflds = fieldcount_noerror(sty)
             ismod = false
         else
