@@ -57,13 +57,13 @@ if !test_relocated_depot
             mktempdir() do dir
                 jlrc = joinpath(dir, "julia-rc2")
                 jl   = joinpath(dir, "julia")
-                mkdir(jlrc)
-                push!(DEPOT_PATH, jlrc)
-                @test Base.replace_depot_path(jlrc) == "@depot"
-                @test Base.replace_depot_path(string(jlrc,Base.Filesystem.pathsep())) ==
+                mkdir(jl)
+                push!(DEPOT_PATH, jl)
+                @test Base.replace_depot_path(jl) == "@depot"
+                @test Base.replace_depot_path(string(jl,Base.Filesystem.pathsep())) ==
                             string("@depot",Base.Filesystem.pathsep())
-                @test Base.replace_depot_path(jl) != "@depot-rc2"
-                @test Base.replace_depot_path(jl) == jl
+                @test Base.replace_depot_path(jlrc) != "@depot-rc2"
+                @test Base.replace_depot_path(jlrc) == jlrc
             end
         end
 
