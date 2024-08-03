@@ -32,7 +32,12 @@ if !test_relocated_depot
             mktempdir() do dir
                 pushfirst!(DEPOT_PATH, dir)
                 path = dir*dir
-                @test Base.replace_depot_path(path) == "@depot"*dir
+                if Sys.iswindows()
+                    # dirs start with a drive letter instead of a path separator
+                    @test Base.replace_depot_path(path) == path
+                else
+                    @test Base.replace_depot_path(path) == "@depot"*dir
+                end
             end
         end
 
