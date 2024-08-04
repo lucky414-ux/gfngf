@@ -410,7 +410,11 @@ julia> triu(a)
  0.0  0.0  0.0  1.0
 ```
 """
-triu(M::AbstractMatrix) = triu!(copymutable(M))
+function triu(M::AbstractMatrix)
+    d = similar(M)
+    A = triu!(d) # may return a different type
+    copytrito!(A, M, 'U')
+end
 
 """
     tril(M)
@@ -434,7 +438,11 @@ julia> tril(a)
  1.0  1.0  1.0  1.0
 ```
 """
-tril(M::AbstractMatrix) = tril!(copymutable(M))
+function tril(M::AbstractMatrix)
+    d = similar(M)
+    A = tril!(d) # may return a different type
+    copytrito!(A, M, 'L')
+end
 
 """
     triu(M, k::Integer)
@@ -465,7 +473,15 @@ julia> triu(a,-3)
  1.0  1.0  1.0  1.0
 ```
 """
-triu(M::AbstractMatrix,k::Integer) = triu!(copymutable(M),k)
+function triu(M::AbstractMatrix,k::Integer)
+    d = similar(M)
+    A = triu!(d,k)
+    for col in axes(A,2)
+        rows = firstindex(A,1):min(col-k, lastindex(A,1))
+        A[rows, col] = @view M[rows, col]
+    end
+    return A
+end
 
 """
     tril(M, k::Integer)
@@ -496,7 +512,15 @@ julia> tril(a,-3)
  1.0  0.0  0.0  0.0
 ```
 """
-tril(M::AbstractMatrix,k::Integer) = tril!(copymutable(M),k)
+function tril(M::AbstractMatrix,k::Integer)
+    d = similar(M)
+    A = tril!(d,k)
+    for col in axes(A,2)
+        rows = max(firstindex(A,1),col-k):lastindex(A,1)
+        A[rows, col] = @view M[rows, col]
+    end
+    return A
+end
 
 """
     triu!(M)
