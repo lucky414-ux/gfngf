@@ -660,6 +660,7 @@ export
     @info,
     @warn,
     @error,
+    @save,
 
 # bigfloat & precision
     precision,
