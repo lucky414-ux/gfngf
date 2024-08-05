@@ -505,6 +505,7 @@ The following `setting`s are supported.
 - `:inaccessiblememonly`
 - `:noub`
 - `:noub_if_noinbounds`
+- `:no_return_type_call`
 - `:foldable`
 - `:removable`
 - `:total`
@@ -683,6 +684,7 @@ currently equivalent to the following `setting`s:
 - `:effect_free`
 - `:terminates_globally`
 - `:noub`
+- `:no_return_type_call`
 
 !!! note
     This list in particular does not include `:nothrow`. The compiler will still
@@ -716,6 +718,7 @@ the following other `setting`s:
 - `:notaskstate`
 - `:inaccessiblememonly`
 - `:noub`
+- `:no_return_type_call`
 
 !!! warning
     `:total` is a very strong assertion and will likely gain additional semantics
@@ -794,17 +797,17 @@ function compute_assumed_setting(override::EffectsOverride, @nospecialize(settin
     elseif setting === :noub_if_noinbounds
         return EffectsOverride(override; noub_if_noinbounds = val)
     elseif setting === :foldable
-        consistent = effect_free = terminates_globally = noub = val
-        return EffectsOverride(override; consistent, effect_free, terminates_globally, noub)
+        consistent = effect_free = terminates_globally = noub = no_return_type_call = val
+        return EffectsOverride(override; consistent, effect_free, terminates_globally, noub, no_return_type_call)
     elseif setting === :removable
         effect_free = nothrow = terminates_globally = val
         return EffectsOverride(override; effect_free, nothrow, terminates_globally)
     elseif setting === :total
         consistent = effect_free = nothrow = terminates_globally = notaskstate =
-            inaccessiblememonly = noub = val
+            inaccessiblememonly = noub = no_return_type_call = val
         return EffectsOverride(override;
             consistent, effect_free, nothrow, terminates_globally, notaskstate,
-            inaccessiblememonly, noub)
+            inaccessiblememonly, noub, no_return_type_call)
     end
     return nothing
 end
