@@ -378,7 +378,7 @@ end
 
 function showerror(io::IO, exc::FieldError)
     @nospecialize
-    print(io, "FieldError: type $(exc.type |> nameof) has no field $(exc.field)")
+    print(io, "FieldError: type $(exc.type |> nameof) has no field `$(exc.field)`")
     Base.Experimental.show_error_hints(io, exc)
 end
 
@@ -1102,7 +1102,7 @@ end
 Experimental.register_error_hint(methods_on_iterable, MethodError)
 
 # Display a hint in case the user tries to access non-member fields of container type datastructures
-function fielderror_hint_handler(io, exc)
+function fielderror_dict_hint_handler(io, exc)
     @nospecialize
     field = exc.field
     type = exc.type
@@ -1113,7 +1113,29 @@ function fielderror_hint_handler(io, exc)
     end
 end
 
-Experimental.register_error_hint(fielderror_hint_handler, FieldError)
+Experimental.register_error_hint(fielderror_dict_hint_handler, FieldError)
+
+function fielderror_listfields_hint_handler(io, exc)
+    fields = fieldnames(exc.type)
+    if isempty(fields)
+        print(io, "; $(nameof(exc.type)) has no fields at all.")
+    else
+        print(io, ", available fields: $(join(map(k -> "`$k`", fields), ", "))")
+    end
+    props = _propertynames_bytype(exc.type)
+    isnothing(props) && return
+    props = setdiff(props, fields)
+    isempty(props) && return
+    print(io, "\nAvailable properties: $(join(map(k -> "`$k`", props), ", "))")
+end
+
+_extract_val(::Type{Val{V}}) where {V} = V
+_extract_val(@nospecialize _) = nothing
+_propertynames_bytype(::Type{T}) where {T} =
+    which(propertynames, (T,)) === which(propertynames, (Any,)) ? nothing :
+    _extract_val(promote_op(Val∘propertynames, T))
+
+Experimental.register_error_hint(fielderror_listfields_hint_handler, FieldError)
 
 # ExceptionStack implementation
 size(s::ExceptionStack) = size(s.stack)
