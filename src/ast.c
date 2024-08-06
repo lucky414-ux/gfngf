@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
 #ifdef _OS_WINDOWS_
 #include <malloc.h>
 #endif
@@ -208,11 +209,41 @@ static value_t fl_nothrow_julia_global(fl_context_t *fl_ctx, value_t *args, uint
     return b != NULL && jl_atomic_load_relaxed(&b->value) != NULL ? fl_ctx->T : fl_ctx->F;
 }
 
-static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs) JL_NOTSAFEPOINT
+// used to generate a unique suffix for a given symbol (e.g. variable or type name)
+// first argument contains a stack of method definitions seen so far by `closure-convert` in flisp.
+// if the top of the stack is non-NIL, we use it to augment the suffix so that it becomes
+// of the form $top_level_method_name##$counter, where counter is stored in a per-module
+// side table indexed by top-level method name.
+// this ensures that precompile statements are a bit more stable across different versions
+// of a codebase. see #53719
+static value_t fl_current_module_counter(fl_context_t *fl_ctx, value_t *args, uint32_t nargs)
 {
+    argcount(fl_ctx, "current-julia-module-counter", nargs, 1);
     jl_ast_context_t *ctx = jl_ast_ctx(fl_ctx);
-    assert(ctx->module);
-    return fixnum(jl_module_next_counter(ctx->module));
+    jl_module_t *m = ctx->module;
+    assert(m != NULL);
+    // Get the outermost function name from the `parsed_method_stack` top
+    char *funcname = NULL;
+    value_t parsed_method_stack = args[0];
+    if (parsed_method_stack != fl_ctx->NIL) {
+        value_t bottom_stack_symbol = fl_applyn(fl_ctx, 1, symbol_value(symbol(fl_ctx, "last")), parsed_method_stack);
+        funcname = symbol_name(fl_ctx, bottom_stack_symbol);
+    }
+    char buf[(funcname != NULL ? strlen(funcname) : 0) + 32]; // 32 is enough for the suffix
+    if (funcname != NULL && strchr(funcname, '#') == NULL) {
+        for (int i = 0; ; i++) {
+            snprintf(buf, sizeof(buf), "%s##%d", funcname, i);
+            jl_sym_t *sym = jl_symbol(buf);
+            if (jl_get_module_binding(m, sym, 0) == NULL) { // make sure this name is not already taken
+                jl_get_module_binding(m, sym, 1); // create the binding
+                return symbol(fl_ctx, buf);
+            }
+        }
+    }
+    else {
+        snprintf(buf, sizeof(buf), "%d", jl_module_next_counter(m));
+    }
+    return symbol(fl_ctx, buf);
 }
 
 static int jl_is_number(jl_value_t *v)
