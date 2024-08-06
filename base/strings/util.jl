@@ -514,6 +514,101 @@ function rpad(
 end
 
 """
+    rtrunc(str::AbstractString, maxwidth::Int, replace_str::AbstractString = "…")
+
+Truncate `str` to at most `maxwidth` columns (as estimated by [`textwidth`](@ref)), replacing the last characters
+with `replacement` if necessary. The default replacement string is "…".
+
+# Examples
+```jldoctest
+julia> s = rtrunc("🍕🍕 I love 🍕", 10)
+"🍕🍕 I lo…"
+
+julia> textwidth(s)
+10
+
+julia> rtrunc("foo", 3)
+"foo"
+```
+
+!!! compat "Julia 1.12"
+    This function was added in Julia 1.12.
+
+See also [`ltrunc`](@ref) and [`ctrunc`](@ref).
+"""
+rtrunc(str::AbstractString, maxwidth::Int, replacement::Union{AbstractString,Char} = '…') = struncate(str, maxwidth, replacement, :right)
+
+"""
+    ltrunc(str::AbstractString, maxwidth::Int, replace_str::AbstractString = "…")
+
+Truncate `str` to at most `maxwidth` columns (as estimated by [`textwidth`](@ref)), replacing the first characters
+with `replacement` if necessary. The default replacement string is "…".
+
+# Examples
+```jldoctest
+julia> s = ltrunc("🍕🍕 I love 🍕", 10)
+"…I love 🍕"
+
+julia> textwidth(s)
+10
+
+julia> ltrunc("foo", 3)
+"foo"
+```
+
+!!! compat "Julia 1.12"
+    This function was added in Julia 1.12.
+
+See also [`rtrunc`](@ref) and [`ctrunc`](@ref).
+"""
+ltrunc(str::AbstractString, maxwidth::Int, replacement::Union{AbstractString,Char} = '…') = struncate(str, maxwidth, replacement, :left)
+
+"""
+    ctrunc(str::AbstractString, maxwidth::Int, replacement::Union{AbstractString,Char} = '…'; prefer_left::Bool = true)
+
+Truncate `str` to at most `maxwidth` columns (as estimated by [`textwidth`](@ref)), replacing the middle characters
+with `replacement` if necessary. The default replacement string is "…". By default, the truncation
+prefers keeping chars on the left, but this can be changed by setting `prefer_left` to `false`.
+
+# Examples
+```jldoctest
+julia> s = ctrunc("🍕🍕 I love 🍕", 10)
+"🍕🍕 …e 🍕"
+
+julia> textwidth(s)
+10
+
+julia> ctrunc("foo", 3)
+"foo"
+```
+
+!!! compat "Julia 1.12"
+    This function was added in Julia 1.12.
+
+See also [`ltrunc`](@ref) and [`rtrunc`](@ref).
+"""
+ctrunc(str::AbstractString, maxwidth::Int, replacement::Union{AbstractString,Char} = '…'; prefer_left::Bool = true) =
+    struncate(str, maxwidth, replacement, :center, prefer_left)
+
+function struncate(str::AbstractString, maxwidth::Int, replacement::Union{AbstractString,Char}, mode::Symbol = :center, prefer_left::Bool = true)
+    maxwidth >= 0 || throw(ArgumentError("maxwidth $maxwidth should be non-negative"))
+    textwidth(str) <= maxwidth && return str
+    l0, _ = left, right = firstindex(str), lastindex(str)
+    width = textwidth(replacement)
+    while true
+        if mode === :left || (mode === :center && (!prefer_left || left > l0))
+            (width += textwidth(str[right])) <= maxwidth || break
+            right = prevind(str, right)
+        end
+        if mode ∈ (:right, :center)
+            (width += textwidth(str[left])) <= maxwidth || break
+            left = nextind(str, left)
+        end
+    end
+    @views return str[begin:prevind(str, left)] * replacement * str[nextind(str, right):end]
+end
+
+"""
     eachsplit(str::AbstractString, dlm; limit::Integer=0, keepempty::Bool=true)
     eachsplit(str::AbstractString; limit::Integer=0, keepempty::Bool=false)
 
