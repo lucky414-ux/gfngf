@@ -96,6 +96,17 @@ void jl_get_function_id_impl(void *native_code, jl_code_instance_t *codeinst,
 }
 
 extern "C" JL_DLLEXPORT_CODEGEN
+void jl_get_llvm_mis_impl(void *native_code, arraylist_t* MIs)
+{
+    jl_native_code_desc_t *data = (jl_native_code_desc_t*)native_code;
+    auto map = data->jl_fvar_map;
+    for (auto &ci : map) {
+        jl_method_instance_t *mi = ci.first->def;
+        arraylist_push(MIs, mi);
+    }
+}
+
+extern "C" JL_DLLEXPORT_CODEGEN
 void jl_get_llvm_gvs_impl(void *native_code, arraylist_t *gvs)
 {
     // map a memory location (jl_value_t or jl_binding_t) to a GlobalVariable
@@ -304,6 +315,7 @@ jl_code_instance_t *jl_ci_cache_lookup(const jl_cgparams_t &cgparams, jl_method_
     return codeinst;
 }
 
+arraylist_t new_invokes;
 // takes the running content that has collected in the shadow module and dump it to disk
 // this builds the object file portion of the sysimage files for fast startup, and can
 // also be used be extern consumers like GPUCompiler.jl to obtain a module containing
@@ -353,8 +365,12 @@ void *jl_create_native_impl(jl_array_t *methods, LLVMOrcThreadSafeModuleRef llvm
     params.imaging_mode = imaging;
     params.debug_level = cgparams->debug_info_level;
     params.external_linkage = _external_linkage;
+    arraylist_new(&new_invokes, 0);
     size_t compile_for[] = { jl_typeinf_world, _world };
-    for (int worlds = 0; worlds < 2; worlds++) {
+    int worlds = 0;
+    if (jl_options.static_call_graph != JL_STATIC_CALL_GRAPH_NO)
+        worlds = 1;
+    for (; worlds < 2; worlds++) {
         JL_TIMING(NATIVE_AOT, NATIVE_Codegen);
         size_t this_world = compile_for[worlds];
         if (!this_world)
@@ -373,6 +389,7 @@ void *jl_create_native_impl(jl_array_t *methods, LLVMOrcThreadSafeModuleRef llvm
                 continue;
             }
             mi = (jl_method_instance_t*)item;
+            compile_mi:
             src = NULL;
             // if this method is generally visible to the current compilation world,
             // and this is either the primary world, or not applicable in the primary world
@@ -380,16 +397,40 @@ void *jl_create_native_impl(jl_array_t *methods, LLVMOrcThreadSafeModuleRef llvm
             if (jl_atomic_load_relaxed(&mi->def.method->primary_world) <= this_world && this_world <= jl_atomic_load_relaxed(&mi->def.method->deleted_world)) {
                 // find and prepare the source code to compile
                 jl_code_instance_t *codeinst = jl_ci_cache_lookup(*cgparams, mi, this_world);
-                if (codeinst && !params.compiled_functions.count(codeinst)) {
-                    // now add it to our compilation results
-                    JL_GC_PROMISE_ROOTED(codeinst->rettype);
-                    orc::ThreadSafeModule result_m = jl_create_ts_module(name_from_method_instance(codeinst->def),
-                            params.tsctx, clone.getModuleUnlocked()->getDataLayout(),
-                            Triple(clone.getModuleUnlocked()->getTargetTriple()));
-                    jl_llvm_functions_t decls = jl_emit_codeinst(result_m, codeinst, NULL, params);
-                    if (result_m)
-                        params.compiled_functions[codeinst] = {std::move(result_m), std::move(decls)};
+                if (jl_options.static_call_graph != JL_STATIC_CALL_GRAPH_NO && !codeinst) {
+                    // If we're building a small image, we need to compile everything
+                    // to ensure that we have all the information we need.
+                    jl_safe_printf("Codegen decided not to compile code root");
+                    jl_(mi);
+                    abort();
                 }
+                if (codeinst && !params.compiled_functions.count(codeinst) && !data->jl_fvar_map.count(codeinst)) {
+                    // now add it to our compilation results
+                    // Const returns do not do codegen, but juliac inspects codegen results so make a dummy fvar entry to represent it
+                    if (jl_options.static_call_graph != JL_STATIC_CALL_GRAPH_NO && codeinst->invoke == jl_fptr_const_return_addr) {
+                        data->jl_fvar_map[codeinst] = std::make_tuple((uint32_t)-3, (uint32_t)-3);
+                    } else {
+                        JL_GC_PROMISE_ROOTED(codeinst->rettype);
+                        orc::ThreadSafeModule result_m = jl_create_ts_module(name_from_method_instance(codeinst->def),
+                                params.tsctx, clone.getModuleUnlocked()->getDataLayout(),
+                                Triple(clone.getModuleUnlocked()->getTargetTriple()));
+                        jl_llvm_functions_t decls = jl_emit_codeinst(result_m, codeinst, NULL, params);
+                        if (result_m)
+                            params.compiled_functions[codeinst] = {std::move(result_m), std::move(decls)};
+                    }
+                }
+            } else if (this_world != jl_typeinf_world) {
+                /*
+                jl_safe_printf("Codegen could not find requested codeinstance to be compiled\n");
+                jl_(mi);
+                abort();
+                */
+            }
+            // TODO: is goto the best way to do this?
+            jl_compile_workqueue(params, policy);
+            mi = (jl_method_instance_t*)arraylist_pop(&new_invokes);
+            if (mi != NULL) {
+                goto compile_mi;
             }
         }
 
@@ -397,6 +438,7 @@ void *jl_create_native_impl(jl_array_t *methods, LLVMOrcThreadSafeModuleRef llvm
         jl_compile_workqueue(params, policy);
     }
     JL_GC_POP();
+    arraylist_free(&new_invokes);
 
     // process the globals array, before jl_merge_module destroys them
     SmallVector<std::string, 0> gvars(params.global_targets.size());
