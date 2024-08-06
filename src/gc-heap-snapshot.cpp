@@ -328,7 +328,7 @@ size_t record_node_to_gc_snapshot(jl_value_t *a) JL_NOTSAFEPOINT
 
     if (jl_is_string(a)) {
         node_type = "String";
-        name = jl_string_data(a);
+        name = "<redacted>";
         self_size = jl_string_len(a);
     }
     else if (jl_is_symbol(a)) {
